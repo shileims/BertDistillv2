@@ -84,6 +84,5 @@ class BertDistill(nn.Module):
         sim_t_2_i_bigmodel = text_latents @ tea_image_latents_gathered.t()
         sim_i_2_t_bigmodel_labels = torch.argmax(sim_i_2_t_bigmodel, dim=-1)
         sim_t_2_i_bigmodel_labels = torch.argmax(sim_t_2_i_bigmodel, dim=-1)
-        # sim_i_2_t_bigmodel_labels = ArgMax(sim_i_2_t_bigmodel)
-        # sim_t_2_i_bigmodel_labels = ArgMax(sim_t_2_i_bigmodel)
+
         return sim_i_2_t, sim_t_2_i, sim_i_2_t_bigmodel, sim_t_2_i_bigmodel, sim_i_2_t_bigmodel_labels, sim_t_2_i_bigmodel_labels

@@ -36,3 +36,5 @@ if __name__ == '__main__':
     x = RandomSampler([1,2,3,4,5,6,7,8,9,10], num_samples=5)
     for y in x:
         print(y)
+    for y in x:
+        print(y)

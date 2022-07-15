@@ -56,26 +56,13 @@ def load_checkpoint(args, auto_resume, resume, model, optimizer):
         torch.distributed.barrier()
 
 
-def load_weights(args, auto_resume, resume, model):
-    res = ''
-    if auto_resume:
-        ckpt_loc = '{}/{}/checkpoint_'.format(args.output_dir, 'ckpts')
-        for epoch in range(args.epochs)[::-1]:
-            res = Path(ckpt_loc + str(epoch) + CHECKPOINT_EXTN)
-            if res.exists():
-                break
-        if not res.exists():
-            res = ''
-    elif resume:
-        res = resume
+def load_weights(args, model):
+    weight_path = os.path.join(args.output_dir, args.quantization_ckpt_path)
+    assert os.path.isfile(weight_path), f'{weight_path} is not a valid file'
 
-    if not res:
-        logger.log('No checkpoint is found for resuming training!')
-        return
-
-    strict = False if args.resume_weight_only else True
+    strict = True
     model_load_func = lambda m: getattr(m, 'load_state_dict')
-    checkpoint = torch.load(res, map_location='cpu')
+    checkpoint = torch.load(weight_path, map_location='cpu')
     stat = model_load_func(model.module if hasattr(model, 'module') else model)(checkpoint['model'], strict=strict)
     logger.log(stat)
-    logger.log(" --------------> Loaded pretrain-weight from {}; epochs {}".format(res, checkpoint['epoch'] + 1))
+    logger.log(" --------------> Loaded pretrain-weight from {}; epochs {}".format(weight_path, checkpoint['epoch'] + 1))

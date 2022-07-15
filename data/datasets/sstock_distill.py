@@ -23,7 +23,7 @@ class SStockDistill(BaseDataset):
     def __init__(self, data_path, transforms=None, tea_img_size=224, stu_img_size=224, is_train=True, fix_length=1483257, debug=False):
         assert transforms is not None, f'data augmentation should not be none'
         if not debug:
-            data_name = {True: '0,1,2,3,10,11,12', False: '13'}
+            data_name = {True: '0,1,2,3,10,11,12', False: '1'}
         else:
             data_name = {True: '0', False: '0'}
         self._data_name = data_name

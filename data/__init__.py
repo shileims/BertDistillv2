@@ -42,7 +42,7 @@ def create_train_val_data_loader(args):
 def create_distill_train_data_loader(args, dataset, sampler, collator):
     is_train = True
     train_transforms = Transforms.get(args.transforms)(args, is_train=is_train)
-    train_dataset = dataset(args.dataset_path, transforms=train_transforms, tea_img_size=args.tea_size, stu_img_size=args.stu_size, is_train=is_train, debug=args.debug)
+    train_dataset = dataset(args.dataset_path, transforms=train_transforms, tea_img_size=args.tea_size, stu_img_size=args.stu_size, is_train=is_train, fix_length=args.train_fix_length,debug=args.debug)
     if args.debug:
         if args.is_dist:
             train_sampler = sampler(train_dataset, num_replicas=args.num_tasks, rank=args.global_rank, shuffle=True, num_samples=args.train_num_samples)
@@ -60,7 +60,7 @@ def create_distill_train_data_loader(args, dataset, sampler, collator):
 def create_distill_val_data_loader(args, dataset, sampler, collator):
     is_train = False
     val_transforms = Transforms.get(args.transforms)(args, is_train=is_train)
-    val_dataset = dataset(args.dataset_path, transforms=val_transforms, tea_img_size=args.tea_size, stu_img_size=args.stu_size, is_train=is_train, debug=args.debug)
+    val_dataset = dataset(args.dataset_path, transforms=val_transforms, tea_img_size=args.tea_size, stu_img_size=args.stu_size, is_train=is_train, fix_length=args.val_fix_length, debug=args.debug)
 
     if args.debug:
         if args.is_dist:

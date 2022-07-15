@@ -25,6 +25,8 @@ def get_args_parser():
     # gerneral arguments
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--batch-size', default=8, type=int)
+    parser.add_argument('--train_fix_length', type=int, default=1483257, help='The default is 1483257')
+    parser.add_argument('--val_fix_length', type=int, default=2048, help='The default is 1483257')
     parser.add_argument('--dataset', default='SStockDistill', type=str)
     parser.add_argument('--train_sampler', default='RandomSampler', type=str)
     parser.add_argument('--val_sampler', default='SequentialSampler', type=str)
@@ -103,7 +105,7 @@ def get_args_parser():
                         help='start epoch')
     parser.add_argument('--gpu_ids', type=str, default='0')
     parser.add_argument('--num_workers', type=int, default=4)
-    parser.add_argument('--output_dir', type=str, default=f'outputs/tmp')
+    parser.add_argument('--output_dir', type=str, default=f'/home/shilei/results/BertDistill_0710/outputs/tmp')
     parser.add_argument('--clip-grad', type=float, default=None, metavar='NORM',
                         help='Clip gradient norm (default: None, no clipping)')
     parser.add_argument('--save_ckpt_freq', type=int, default=1, help='Frequency of saving ckpt')
@@ -127,8 +129,8 @@ def get_args_parser():
                                  'StuV2LAcc_R128', 'StuL2VAcc_R128'])
 
     # quantization aware training arguments
-    parser.add_argument('--quantization_aware_training', action='store_false', default=True)
-    parser.add_argument('--quantization_ckpt_path', type=str, default='outputs/tmp/ckpts/checkpoint_0.pth')
+    parser.add_argument('--quantization_aware_training', action='store_true', default=False)
+    parser.add_argument('--quantization_ckpt_path', type=str, default='ckpts/checkpoint_0.pth')
 
 
     # augmentation arguments
@@ -266,7 +268,7 @@ def main_distill_quantization(args):
 
     # build model
     model = create_distill_model(args)
-    load_weights(args, args.auto_resume, args.resume, model)
+    load_weights(args, model)
     model = model.to(device)
     fused_model = copy.deepcopy(model)
     model.train()
@@ -360,6 +362,7 @@ def main_distill_dist_quantization(args):
 
 if __name__ == '__main__':
     args = get_args_parser().parse_args()
+
     create_output_dir(args)
     if args.is_distill:
         if args.is_dist:

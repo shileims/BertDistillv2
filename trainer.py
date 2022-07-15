@@ -749,12 +749,7 @@ class TrainerDistributedDistill(object):
     def train_epoch(self, epoch):
         # Only achieving results for rank 1 --> rank, metric_names
         train_stats = Statistics(metric_names=self.train_metric_names, SUPPORTED_STATS=self.train_metric_names)
-        if hasattr(self.model, 'module'):
-            self.model.module.train()
-            self.model.module.train()
-        else:
-            self.model.train()
-            self.model.train()
+        self.model.train()
 
         epoch_start_time = time.time()
         batch_load_start = time.time()
@@ -771,9 +766,6 @@ class TrainerDistributedDistill(object):
             loss = loss / self.args.accumulate_step
 
             batch_size = logits_per_text_teacher.size(0)
-            # if hasattr(self.model, 'module'):
-            #     logits_per_image, logits_per_text, logits_per_image_teacher, logits_per_text_teacher, distill_label_image, distill_label_text = self.model.module(
-            #           input_tea_img, input_stu_img, input_text)
             # rank serves to picking up top rank similarity accuracy
             rank = self.args.distill_train_rank
             distill_label_image, distill_label_text = np.asarray(distill_label_image.cpu()), np.asarray(
@@ -860,19 +852,11 @@ class TrainerDistributedDistill(object):
         logit_scale = self.model.module.logit_scale if hasattr(self.model, 'module') else self.model.logit_scale
         # Achieving results for rank 1, 5, 10, 128 --> rank, metric_names
         val_stats = Statistics(metric_names=self.val_metric_names, SUPPORTED_STATS=self.val_metric_names)
-        if hasattr(self.model, 'module'):
-            self.model.module.eval()
-        else:
-            self.model.eval()
+        self.model.eval()
 
-        if hasattr(self.model, 'module'):
-            if self.model.module.training:
-                logger.warning('Model is in training mode. Switching to evaluation mode')
-                self.model.module.eval()
-        else:
-            if self.model.training:
-                logger.warning('Model is in training mode. Switching to evaluation mode')
-                self.model.eval()
+        if self.model.training:
+            logger.warning('Model is in training mode. Switching to evaluation mode')
+            self.model.eval()
 
         total_samples = len(self.val_dataloader) if not self.args.debug else self.args.val_num_samples
 
@@ -886,12 +870,8 @@ class TrainerDistributedDistill(object):
                 input_stu_img = input_stu_img.to(self.args.device)
                 input_text = {k: v.to(self.args.device, non_blocking=True) for k, v in input_text.items()}
 
-                if hasattr(self.model, 'module'):
-                    tea_img_latents, stu_img_latents, text_latents = self.model.module(
-                        input_tea_img, input_stu_img, input_text, return_latent_only=True)
-                else:
-                    tea_img_latents, stu_img_latents, text_latents = self.model(
-                    input_tea_img, input_stu_img, input_text, return_latent_only=True)
+                tea_img_latents, stu_img_latents, text_latents = self.model(
+                input_tea_img, input_stu_img, input_text, return_latent_only=True)
 
                 logits_per_image = logit_scale * stu_img_latents @ text_latents.t()
                 logits_per_text = logit_scale * text_latents @ stu_img_latents.t()
