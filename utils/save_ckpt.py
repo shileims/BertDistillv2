@@ -7,24 +7,37 @@ from .logging import logger
 CHECKPOINT_EXTN = ".pth"
 
 def save_checkpoint(train_iterations, model, optimizer, epoch, args, checkpoint_name=None, loss_scaler=None, stat=None):
-    checkpoint_folder = args.output_dir + '/' + 'ckpts'
-    Path(checkpoint_folder).mkdir(parents=True, exist_ok=True)
-    if checkpoint_name is not None:
-        checkpoint_path = checkpoint_folder + '/' + checkpoint_name
-    else:
-        checkpoint_path = checkpoint_folder + '/' + f'checkpoint_{epoch}.pth'
+    if not args.quantization_aware_training:
+        checkpoint_folder = args.output_dir + '/' + 'ckpts'
+        Path(checkpoint_folder).mkdir(parents=True, exist_ok=True)
+        if checkpoint_name is not None:
+            checkpoint_path = checkpoint_folder + '/' + checkpoint_name
+        else:
+            checkpoint_path = checkpoint_folder + '/' + f'checkpoint_{epoch}.pth'
 
-    stat_dict = {
-        'train_iters': train_iterations,
-        'model': model.module.state_dict() if hasattr(model, 'module') else model.state_dict(),
-        'optimizer': optimizer.state_dict(),
-        'epoch': epoch,
-        'scaler': loss_scaler.state_dict() if loss_scaler is not None else None,
-        'args': args,
-        'stat': stat,
-    }
-    torch.save(stat_dict, checkpoint_path)
-    return checkpoint_path
+        stat_dict = {
+            'train_iters': train_iterations,
+            'model': model.module.state_dict() if hasattr(model, 'module') else model.state_dict(),
+            'optimizer': optimizer.state_dict(),
+            'epoch': epoch,
+            'scaler': loss_scaler.state_dict() if loss_scaler is not None else None,
+            'args': args,
+            'stat': stat,
+        }
+        torch.save(stat_dict, checkpoint_path)
+        return checkpoint_path
+    else:
+        checkpoint_folder = args.output_dir + '/' + 'ckpts'
+        Path(checkpoint_folder).mkdir(parents=True, exist_ok=True)
+        if checkpoint_name is not None:
+            checkpoint_path = checkpoint_folder + '/' + checkpoint_name
+        else:
+            checkpoint_path = checkpoint_folder + '/' + f'quantization_checkpoint_{epoch}.pth'
+        int8_model = torch.quantization.convert(model)
+        int8_model.eval()
+        # torch.jit.save(torch.jit.script(int8_model), checkpoint_path)
+        torch.save(int8_model.state_dict(), checkpoint_path)
+        return checkpoint_path
 
 
 def load_checkpoint(args, auto_resume, resume, model, optimizer):

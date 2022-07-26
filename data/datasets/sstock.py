@@ -106,3 +106,5 @@ class SStock(BaseDataset):
         if self.fix_length != -1:
             return self.fix_length
         return len(self.database)
+
+

@@ -106,3 +106,20 @@ def create_distill_train_val_datasets(args):
     train_dataset = create_distill_train_dataset(args, dataset)
     val_dataset   = create_distill_val_dataset(args, dataset)
     return train_dataset, val_dataset
+
+
+def create_distill_eval_loader(args):
+    dataset = Datasets.get(args.dataset)
+    sampler = Samplers.get(args.sampler)
+    collator = Collators.get(args.collator)
+    is_train = False
+    val_transforms = Transforms.get(args.transforms)(args, is_train=is_train)
+    print(dataset)
+    dataset = dataset(args.dataset_path, transforms=val_transforms, tea_img_size=args.tea_size, stu_img_size=args.stu_size)
+    if args.debug:
+        sampler = sampler(dataset, num_samples=args.num_samples)
+        dataloader = DataLoader(dataset=dataset, sampler=sampler, collate_fn=collator(), batch_size=args.debug_batch_size, drop_last=True)
+    else:
+        sampler = sampler(dataset)
+        dataloader = DataLoader(dataset=dataset, sampler=sampler, collate_fn=collator(), batch_size=args.batch_size, num_workers=args.num_workers, drop_last=False)
+    return dataloader

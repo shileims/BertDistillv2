@@ -5,6 +5,7 @@ import argparse
 import os.path
 import json
 import numpy as np
+import torch.cuda.amp as amp
 
 from data import create_train_val_data_loader, create_train_data_loader, create_distill_train_val_data_loader
 from utils import device_initialize
@@ -25,7 +26,7 @@ def get_args_parser():
     # gerneral arguments
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--batch-size', default=8, type=int)
-    parser.add_argument('--train_fix_length', type=int, default=1483257, help='The default is 1483257')
+    parser.add_argument('--train_fix_length', type=int, default=2048, help='The default is 1483257')
     parser.add_argument('--val_fix_length', type=int, default=2048, help='The default is 1483257')
     parser.add_argument('--dataset', default='SStockDistill', type=str)
     parser.add_argument('--train_sampler', default='RandomSampler', type=str)
@@ -39,7 +40,8 @@ def get_args_parser():
     parser.add_argument("--local_rank", type=int, default=-1, help='local rank for DistributedDataParallel')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
 
-    parser.add_argument('--amp', action='store_false', default=True, help='Mixed precision training by using torch amp')
+    parser.add_argument('--amp', action='store_true', default=False, help='Mixed precision training by using torch amp')
+    parser.add_argument('--opt_level', type=str, default='O1')
     parser.add_argument('--auto_resume', action='store_false', default=True, help='Automatically loading the latest checkpoint')
     parser.add_argument('--resume', type=str, default='', help='Specify the path of checkpoint the model needs to load')
     parser.add_argument('--resume-weight-only', action='store_true', default=False, help='Auto resume from the latest checkpoint')
@@ -132,7 +134,6 @@ def get_args_parser():
     parser.add_argument('--quantization_aware_training', action='store_true', default=False)
     parser.add_argument('--quantization_ckpt_path', type=str, default='ckpts/checkpoint_0.pth')
 
-
     # augmentation arguments
 
     parser.add_argument('--color-jitter', type=float, default=0.4, metavar='PCT',
@@ -166,8 +167,8 @@ def get_args_parser():
     # debug arguments
     parser.add_argument('--debug', action='store_false', default=True)
     parser.add_argument('--train_num_samples', type=int, default=512)
-    parser.add_argument('--val_num_samples', type=int, default=512)
-    parser.add_argument('--debug_batch_size', type=int, default=64)
+    parser.add_argument('--val_num_samples', type=int, default=256)
+    parser.add_argument('--debug_batch_size', type=int, default=32)
     return parser
 
 
@@ -228,13 +229,15 @@ def main_distill(args):
 
     # build optimizer
     optimizer = build_distill_optimizer(args, model, train_dataloader).optimizer
-    # print(optmizer)
+
     # build scheduler
     lr_scheduler = create_scheduler(args, train_dataloader)
-    # print(lr_scheduler)
+
     # build loss scaler
-    # loss_scaler = create_loss_scaler(args)
-    # print(loss_scaler)
+    loss_scaler = None
+    if args.amp:
+        loss_scaler = torch.cuda.amp.GradScaler()
+
     # build loss
     criterion       = create_loss(args)
     # print(loss)
@@ -253,14 +256,15 @@ def main_distill(args):
                            scheduler=lr_scheduler,
                            val_dataloader=val_dataloader,
                            train_dataloader=train_dataloader,
-                           criterion=criterion)
+                           criterion=criterion,
+                           loss_scaler=loss_scaler)
     train_engine.run(train_sampler=train_sampler)
 
 def main_distill_quantization(args):
     # device setting
     device = torch.device('cpu')
     args.device = device
-
+    args.amp = False
     # build dataloader
     train_data, val_data, _ = create_distill_train_val_data_loader(args)
     train_dataloader, val_dataloader = train_data[-1], val_data[-1]
@@ -274,29 +278,39 @@ def main_distill_quantization(args):
     model.train()
     fused_model.train()
 
+    # Fusing modules for reducing accuracy of quantization and dequantization
+    # Official support operators are: ConV + BN、ConV + BN + ReLU、Conv + ReLU、Linear + ReLU、BN + ReLU
+    # So for transformer, this step is omitted
 
+    model.eval()
+    fused_model.eval()
+    model.distill_quantization()
 
-    # # build optimizer
-    # optimizer = build_distill_optimizer(args, model, train_dataloader).optimizer
+    quantization_config = torch.quantization.get_default_qconfig("fbgemm")
+    model.qconfig = quantization_config
+    torch.quantization.prepare_qat(model.distill_quantization_model, inplace=True)
+
+    # build optimizer
+    optimizer = build_distill_optimizer(args, model, train_dataloader).optimizer
+
+    # build scheduler
+    lr_scheduler = create_scheduler(args, train_dataloader)
     # 
-    # # build scheduler
-    # lr_scheduler = create_scheduler(args, train_dataloader)
+    # build loss
+    criterion = create_loss(args)
     # 
-    # # build loss
-    # criterion = create_loss(args)
-    # 
-    # # Training process
-    # with open(os.path.join(args.output_dir, 'args.txt'), 'w') as f:
-    #     f.write(json.dumps(str(args)))
-    # 
-    # train_engine = TrainerDistill(args=args,
-    #                               model=model,
-    #                               optimizer=optimizer,
-    #                               scheduler=lr_scheduler,
-    #                               val_dataloader=val_dataloader,
-    #                               train_dataloader=train_dataloader,
-    #                               criterion=criterion)
-    # train_engine.run(train_sampler=train_sampler)
+    # Training process
+    with open(os.path.join(args.output_dir, 'args.txt'), 'w') as f:
+        f.write(json.dumps(str(args)))
+
+    train_engine = TrainerDistill(args=args,
+                                  model=model,
+                                  optimizer=optimizer,
+                                  scheduler=lr_scheduler,
+                                  val_dataloader=val_dataloader,
+                                  train_dataloader=train_dataloader,
+                                  criterion=criterion)
+    train_engine.run(train_sampler=train_sampler)
 
 def main_distill_dist(args):
     assert args.is_dist, f'args.is_dist should be True'
@@ -337,6 +351,11 @@ def main_distill_dist(args):
     # build loss
     args.loss = 'DistributedNCE'
     criterion       = create_loss(args)
+    
+    # build loss_scaler
+    loss_scaler = None
+    if args.amp:
+        loss_scaler = torch.cuda.amp.GradScaler()
 
     if args.auto_resume or args.resume:
         load_checkpoint(args, args.auto_resume, args.resume, model, optimizer)
@@ -354,16 +373,92 @@ def main_distill_dist(args):
                            val_dataloader=val_dataloader,
                            train_dataloader=train_dataloader,
                            criterion=criterion,
-                           is_mater=is_main_process())
+                           is_mater=is_main_process(),
+                           loss_scaler=loss_scaler)
     train_engine.run(train_sampler=train_sampler)
 
 def main_distill_dist_quantization(args):
-    pass
+    """
+    Not Finished!
+    :param args:
+    :return:
+    """
+    assert args.is_dist, f'args.is_dist should be True'
+    assert args.local_rank >= 0, f'For distributed training, local_rank should be set'
+    os.environ['LOCAL_RANK'] = str(args.local_rank)
+    init_distributed_mode(args)
+    device = torch.device('cpu')
+    args.device = device
+
+    # fix the seed for reproducibility
+    seed = args.seed + get_rank()
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    g = torch.Generator()
+    g.manual_seed(seed)
+
+    # build dataloader
+    args.train_sampler = 'DistributedSampler'
+    args.val_sampler = 'DistributedSampler'
+    args.num_tasks = get_world_size()
+    args.global_rank = get_rank()
+    train_data, val_data, _ = create_distill_train_val_data_loader(args)
+    train_dataloader, val_dataloader = train_data[-1], val_data[-1]
+    train_sampler = train_data[1]
+
+    # build model
+    model = create_distill_model(args)
+    load_weights(args, model)
+    model = model.to(device)
+    fused_model = copy.deepcopy(model)
+    model.train()
+    fused_model.train()
+
+    # DDP the model
+    model = DistributedDataParallel(model, device_ids=[args.gpu], output_device=args.gpu, find_unused_parameters=True,
+                                    broadcast_buffers=False)
+
+    # build optimizer
+    optimizer = build_distill_optimizer(args, model, train_dataloader).optimizer
+
+    # build scheduler
+    lr_scheduler = create_scheduler(args, train_dataloader)
+
+    # build loss
+    args.loss = 'DistributedNCE'
+    criterion = create_loss(args)
+
+    # build loss_scaler
+    loss_scaler = None
+    if args.amp:
+        loss_scaler = torch.cuda.amp.GradScaler()
+
+    if args.auto_resume or args.resume:
+        load_checkpoint(args, args.auto_resume, args.resume, model, optimizer)
+
+    # Training process
+    if is_main_process():
+        with open(os.path.join(args.output_dir, 'args.txt'), 'w') as f:
+            f.write(json.dumps(str(args)))
+
+    train_engine = TrainerDistributedDistill(args=args,
+                                             model=model,
+                                             optimizer=optimizer,
+                                             scheduler=lr_scheduler,
+                                             val_dataloader=val_dataloader,
+                                             train_dataloader=train_dataloader,
+                                             criterion=criterion,
+                                             is_mater=is_main_process(),
+                                             loss_scaler=loss_scaler)
+    train_engine.run(train_sampler=train_sampler)
 
 if __name__ == '__main__':
     args = get_args_parser().parse_args()
-
     create_output_dir(args)
+    # args.is_distill = True
+    # args.is_dist = False
+    # args.quantization_aware_training = True
+
     if args.is_distill:
         if args.is_dist:
             if args.quantization_aware_training:

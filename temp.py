@@ -60,6 +60,9 @@ class Model(torch.nn.Module):
     def forward(self, x):
         return self.layer2(self.layer1(x))
 
+a = 1
+b = '2'
+c = 3
 
 
 parser = argparse.ArgumentParser()
@@ -80,7 +83,9 @@ if __name__ == '__main__':
     # model = Model()
     # print(model)
     # print(args.helps)
-    a = ''
-    c = 'a'
-    b = 'b.pth'
-    print(os.path.join(c, b), os.path.join(a, b))
+    # a = ''
+    # c = 'a'
+    # b = 'b.pth'
+    # print(os.path.join(c, b), os.path.join(a, b))
+    xx = globals()
+    print(type(xx))

@@ -17,7 +17,7 @@ except ImportError as e:
     SummaryWriter = None
 
 class Trainer(object):
-    def __init__(self, args, model, optimizer, scheduler, val_dataloader, train_dataloader, criterion):
+    def __init__(self, args, model, optimizer, scheduler, val_dataloader, train_dataloader, criterion, loss_scaler=None):
         super(Trainer, self).__init__()
         self.args = args
         self.model = model
@@ -27,6 +27,7 @@ class Trainer(object):
         self.scheduler = scheduler
         self.device = args.device
         self.criterion = criterion
+        self.loss_scaler = loss_scaler
         self.train_iterations = args.start_iteration
         logger.log(f'Training from {args.start_iteration}th iteration')
         self.v2lacc_func = lambda x, y: list({ 'V2LAcc_R' + str(yy): getattr(x, 'avg_statistics')(metric_name='V2LAcc_R' + str(yy)) } for yy in y)
@@ -43,6 +44,9 @@ class Trainer(object):
         self.tb_log_writter = None
         if SummaryWriter is not None:
             self.setup_log_writer()
+            
+        if args.amp:
+            assert self.loss_scaler is not None
 
     def setup_log_writer(self):
         log_dir = os.path.join(self.args.output_dir, 'tb_log')
@@ -315,7 +319,7 @@ class Trainer(object):
 
 
 class TrainerDistill(object):
-    def __init__(self, args, model, optimizer, scheduler, val_dataloader, train_dataloader, criterion):
+    def __init__(self, args, model, optimizer, scheduler, val_dataloader, train_dataloader, criterion, loss_scaler=None):
         super(TrainerDistill, self).__init__()
         self.args = args
         self.model = model
@@ -325,6 +329,7 @@ class TrainerDistill(object):
         self.scheduler = scheduler
         self.device = args.device
         self.criterion = criterion
+        self.loss_scaler = loss_scaler
         self.train_iterations = args.start_iteration
         logger.log(f'Training from {args.start_iteration}th iteration')
         self.tea_v2lacc_func = lambda x, y: list({ 'TeaV2LAcc_R' + str(yy): getattr(x, 'avg_statistics')(metric_name='TeaV2LAcc_R' + str(yy)) } for yy in y)
@@ -343,6 +348,9 @@ class TrainerDistill(object):
         self.tb_log_writter = None
         if SummaryWriter is not None:
             self.setup_log_writer()
+            
+        if args.amp:
+            assert self.loss_scaler is not None
 
     def setup_log_writer(self):
         log_dir = os.path.join(self.args.output_dir, 'tb_log')
@@ -426,8 +434,13 @@ class TrainerDistill(object):
             input_text = {k: v.to(self.args.device, non_blocking=True) for k, v in input_text.items()}
 
             self.optimizer = self.scheduler.distill_update_lr(self.optimizer, len(self.train_dataloader), epoch, batch_id)
-            logits_per_image, logits_per_text, logits_per_image_teacher, logits_per_text_teacher, distill_label_image, distill_label_text = self.model(input_tea_img, input_stu_img, input_text)
-            loss = self.criterion(logits_per_image, logits_per_text, distill_label_image, distill_label_text)
+            if not self.args.amp:
+                logits_per_image, logits_per_text, logits_per_image_teacher, logits_per_text_teacher, distill_label_image, distill_label_text = self.model(input_tea_img, input_stu_img, input_text)
+                loss = self.criterion(logits_per_image, logits_per_text, distill_label_image, distill_label_text)
+            else:
+                with torch.cuda.amp.autocast():
+                    logits_per_image, logits_per_text, logits_per_image_teacher, logits_per_text_teacher, distill_label_image, distill_label_text = self.model(input_tea_img, input_stu_img, input_text)
+                    loss = self.criterion(logits_per_image, logits_per_text, distill_label_image, distill_label_text)
             loss = loss / self.args.accumulate_step
 
             batch_size = logits_per_text_teacher.size(0)
@@ -455,36 +468,41 @@ class TrainerDistill(object):
                 pdb.set_trace()
 
 
-            before_backward_params = None
-            params_name = None
-            for idx, (name, params) in enumerate(self.model.named_parameters()):
-                if params.requires_grad:
-                    if 'projector' in name:
-                        continue
-                    else:
-                        before_backward_params = copy.deepcopy(params.data)
-                        params_name = name
-                        break
+            # before_backward_params = None
+            # params_name = None
+            # for idx, (name, params) in enumerate(self.model.named_parameters()):
+            #     if params.requires_grad:
+            #         before_backward_params = copy.deepcopy(params.data)
+            #         params_name = name
+            #         break
 
-            loss.backward()
+            if not self.args.amp:
+                loss.backward()
+            else:
+                self.loss_scaler.scale(loss).backward()
 
             if (batch_id + 1) % self.args.accumulate_step == 0:
                 if self.args.clip_grad is not None:
                     # For gradient clipping, unscale the gradients and then clip them
-                    # self.gradient_scalar.unscale_(self.optimizer)
+                    self.loss_scaler.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.args.clip_grad)
 
-                self.optimizer.step()
-                self.optimizer.zero_grad()
+                if not self.args.amp:
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+                else:
+                    self.loss_scaler.step(self.optimizer)
+                    self.loss_scaler.update()
+                    self.optimizer.zero_grad()
 
-                after_backward_params = None
-                for idx, (name, params) in enumerate(self.model.named_parameters()):
-                    if params.requires_grad and name == params_name:
-                        after_backward_params = params
-                        break
+                # after_backward_params = None
+                # for idx, (name, params) in enumerate(self.model.named_parameters()):
+                #     if params.requires_grad and name == params_name:
+                #         after_backward_params = params
+                #         break
 
                 # check if model parameters are updated or not
-                assert not torch.equal(before_backward_params, after_backward_params.data)
+                # if not torch.equal(before_backward_params, after_backward_params.data):
 
             metrics = distill_metric_monitor(stu_v2lacc_r1=i2t_accs[0], stu_l2vacc_r1=t2i_accs[0],
                                              tea_v2lacc_r1=i2t_accs_teacher[0], tea_l2vacc_r1=t2i_accs_teacher[0],
@@ -649,7 +667,7 @@ class TrainerDistill(object):
 
 
 class TrainerDistributedDistill(object):
-    def __init__(self, args, model, optimizer, scheduler, val_dataloader, train_dataloader, criterion, is_mater):
+    def __init__(self, args, model, optimizer, scheduler, val_dataloader, train_dataloader, criterion, is_mater, loss_scaler=None):
         super(TrainerDistributedDistill, self).__init__()
         self.args = args
         self.model = model
@@ -661,6 +679,7 @@ class TrainerDistributedDistill(object):
         self.criterion = criterion
         self.train_iterations = args.start_iteration
         self.is_master = is_mater
+        self.loss_scaler = loss_scaler
         logger.log(f'Training from {args.start_iteration}th iteration')
         self.tea_v2lacc_func = lambda x, y: list({ 'TeaV2LAcc_R' + str(yy): getattr(x, 'avg_statistics')(metric_name='TeaV2LAcc_R' + str(yy)) } for yy in y)
         self.tea_l2vacc_func = lambda x, y: list({ 'TeaL2VAcc_R' + str(yy): getattr(x, 'avg_statistics')(metric_name='TeaL2VAcc_R' + str(yy)) } for yy in y)
@@ -678,6 +697,9 @@ class TrainerDistributedDistill(object):
         self.tb_log_writter = None
         if SummaryWriter is not None and self.is_master:
             self.setup_log_writer()
+            
+        if args.amp:
+            assert self.loss_scaler is not None
 
     def setup_log_writer(self):
         log_dir = os.path.join(self.args.output_dir, 'tb_log')
@@ -761,8 +783,14 @@ class TrainerDistributedDistill(object):
             input_text = {k: v.to(self.args.device, non_blocking=True) for k, v in input_text.items()}
 
             self.optimizer = self.scheduler.distill_update_lr(self.optimizer, len(self.train_dataloader), epoch, batch_id)
-            logits_per_image, logits_per_text, logits_per_image_teacher, logits_per_text_teacher, distill_label_image, distill_label_text = self.model(input_tea_img, input_stu_img, input_text)
-            loss = self.criterion(logits_per_image, logits_per_text, distill_label_image, distill_label_text)
+            if not self.args.amp:
+                logits_per_image, logits_per_text, logits_per_image_teacher, logits_per_text_teacher, distill_label_image, distill_label_text = self.model(input_tea_img, input_stu_img, input_text)
+                loss = self.criterion(logits_per_image, logits_per_text, distill_label_image, distill_label_text)
+            else:
+                with torch.cuda.amp.autocast():
+                    logits_per_image, logits_per_text, logits_per_image_teacher, logits_per_text_teacher, distill_label_image, distill_label_text = self.model(input_tea_img, input_stu_img, input_text)
+                    loss = self.criterion(logits_per_image, logits_per_text, distill_label_image, distill_label_text)
+                
             loss = loss / self.args.accumulate_step
 
             batch_size = logits_per_text_teacher.size(0)
@@ -786,15 +814,18 @@ class TrainerDistributedDistill(object):
                 import pdb
                 pdb.set_trace()
 
-            before_backward_params = None
-            params_name = None
-            for idx, (name, params) in enumerate(self.model.named_parameters()):
-                if params.requires_grad:
-                    before_backward_params = copy.deepcopy(params.data)
-                    params_name = name
-                    break
+            # before_backward_params = None
+            # params_name = None
+            # for idx, (name, params) in enumerate(self.model.named_parameters()):
+            #     if params.requires_grad:
+            #         before_backward_params = copy.deepcopy(params.data)
+            #         params_name = name
+            #         break
 
-            loss.backward()
+            if not self.args.amp:            
+                loss.backward()
+            else:
+                self.loss_scaler.scale(loss).backward()
 
             if (batch_id + 1) % self.args.accumulate_step == 0:
                 if self.args.clip_grad is not None:
@@ -802,17 +833,22 @@ class TrainerDistributedDistill(object):
                     # self.gradient_scalar.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=self.args.clip_grad)
 
-                self.optimizer.step()
-                self.optimizer.zero_grad()
+                if not self.args.amp:
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+                else:
+                    self.loss_scaler.step(self.optimizer)
+                    self.loss_scaler.update()
+                    self.optimizer.zero_grad()
 
-                after_backward_params = None
-                for idx, (name, params) in enumerate(self.model.named_parameters()):
-                    if params.requires_grad and name == params_name:
-                        after_backward_params = params
-                        break
-
-                # check if model parameters are updated or not
-                assert not torch.equal(before_backward_params, after_backward_params.data), params_name
+                # after_backward_params = None
+                # for idx, (name, params) in enumerate(self.model.named_parameters()):
+                #     if params.requires_grad and name == params_name:
+                #         after_backward_params = params
+                #         break
+                #
+                # # check if model parameters are updated or not
+                # assert not torch.equal(before_backward_params, after_backward_params.data), params_name
 
             metrics = distill_metric_monitor(stu_v2lacc_r1=i2t_accs[0], stu_l2vacc_r1=t2i_accs[0],
                                              tea_v2lacc_r1=i2t_accs_teacher[0], tea_l2vacc_r1=t2i_accs_teacher[0],

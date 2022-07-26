@@ -41,6 +41,10 @@ class SStockDistill(BaseDataset):
         datasets = dataset_name.strip().split(',')
         full_info = []
         for data_idx in datasets:
+            json_path = os.path.join(self._data_path, f'split_{data_idx}.json')
+            if not os.path.exists(json_path):
+                continue
+            print(f'Reading json data from {json_path}')
             _full_info = json.load(
                 open(os.path.join(self._data_path, f'split_{data_idx}.json')))
             full_info.extend(list(_full_info.values()))

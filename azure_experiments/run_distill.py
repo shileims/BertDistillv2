@@ -15,6 +15,9 @@ parser.add_argument('--val_num_samples', type=int, default=256)
 parser.add_argument('--debug_batch_size', type=int, default=64)
 args = parser.parse_args()
 
+lr = 5e-4
+lr_scale = 1
+lr_scale *= args.batch_size // 4 // 64
 
 if __name__ == '__main__':
     print(f"AML cmd printout: {args}")
@@ -69,7 +72,8 @@ if __name__ == '__main__':
                     --train_num_samples {} \
                     --stu-size {} \
                     --distill-model {} \
-                    --output_dir {}".format(vlmodel_pretrain, args.batch_size, dataset_path, args.debug_batch_size, args.val_num_samples, args.train_num_samples, stu_size, distill_model, output_dir))
+                    --output_dir {} \
+                    --lr {} ".format(vlmodel_pretrain, args.batch_size, dataset_path, args.debug_batch_size, args.val_num_samples, args.train_num_samples, stu_size, distill_model, output_dir, lr*lr_scale))
     else:
         os.system("python main.py \
                             --vlmodel-pretrain {} \
@@ -80,6 +84,7 @@ if __name__ == '__main__':
                             --train_num_samples {} \
                             --stu-size {} \
                             --distill-model {} \
-                            --output_dir {}".format(vlmodel_pretrain, args.batch_size, dataset_path,
+                            --output_dir {} \
+                            --lr {}".format(vlmodel_pretrain, args.batch_size, dataset_path,
                                                     args.debug_batch_size, args.val_num_samples, args.train_num_samples,
-                                                    stu_size, distill_model, output_dir))
+                                                    stu_size, distill_model, output_dir, lr*lr_scale))

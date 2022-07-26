@@ -14,15 +14,19 @@ parser.add_argument('--train_num_samples', type=int, default=256)
 parser.add_argument('--stu-size', type=int, default=160)
 parser.add_argument('--distill-model', type=str, default='swin_mini4')
 parser.add_argument('--output_dir', type=str, default='')
-parser.add_argument('--node_num', type=int, default=4)
+parser.add_argument('--node_num', type=int, default=8)
 args = parser.parse_args()
 
 node_num = args.node_num
-num_workers = int(4 * node_num)
+num_workers = int(node_num)
 num_workers = 0
+
 lr = 5e-4
 lr_scale = 1
-lr_scale *= args.batch_size // 64
+lr_scale *= args.batch_size * node_num / 4 / 64
+
+os.system("./azcopy copy 'https://lei2021.blob.core.windows.net/swintransori/SS2M?sp=racwdli&st=2022-07-22T03:00:10Z&se=2022-08-01T11:00:10Z&sv=2021-06-08&sr=c&sig=lkCl%2BT4%2FLQBNRr4V5%2B9ogMhCZ4bbXCqFeThJqDqVKiY%3D' './' --recursive")
+args.dataset_path = 'SS2M'
 
 if args.debug:
     os.system("python ./launch.py \
