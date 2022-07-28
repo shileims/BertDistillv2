@@ -7,6 +7,7 @@ from model.vmodel import VModels
 from model.lmodel import LModels
 from model.swin_default import build_mini_model
 from utils import SyncFunction, ArgMax
+from utils import resize as TensorResize
 
 class QuantizedModel(nn.Module):
     def __init__(self, model_fp32_backbone, model_fp32_projector=None):
@@ -38,6 +39,8 @@ class BertDistill(nn.Module):
     def __init__(self, args, quantization=False):
         super().__init__()
 
+        self.tea_img_size = args.tea_img_size
+        self.stu_img_size = args.stu_img_size
         self.quantization = quantization
         self.is_dist = args.is_dist
         if args.fix_tau == 0:
@@ -98,9 +101,20 @@ class BertDistill(nn.Module):
             stu_image_latents = self.distill_quantization_model(x)
         return stu_image_latents
 
-    def forward(self, tea_imgs, stu_imgs, sentence, return_latent_only=False):
+    def forward(self, input_imgs, sentence, return_latent_only=False):
 
         text_latents = self.language_model(sentence)
+        if self.tea_img_size != self.stu_img_size:
+            small_imgs = TensorResize(input_imgs, size=[min(self.tea_img_size, self.stu_img_size), min(self.tea_img_size, self.stu_img_size)])
+        else:
+            small_imgs = input_imgs
+        if self.tea_img_size > self.stu_img_size:
+            tea_imgs = input_imgs
+            stu_imgs = small_imgs
+        else:
+            tea_imgs = small_imgs
+            stu_imgs = input_imgs
+
         with torch.no_grad():
             tea_image_latents = self.vision_model.distill_forward(tea_imgs)
             tea_image_latents /= tea_image_latents.norm(p=2, dim=-1, keepdim=True)

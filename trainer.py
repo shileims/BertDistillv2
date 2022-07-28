@@ -777,18 +777,21 @@ class TrainerDistributedDistill(object):
         batch_load_start = time.time()
         for batch_id, batch in enumerate(tqdm(self.train_dataloader)):
             batch_load_toc = time.time() - batch_load_start
-            input_tea_img, input_stu_img, input_text = batch[0], batch[1], batch[2]
-            input_tea_img = input_tea_img.to(self.args.device, non_blocking=True)
-            input_stu_img = input_stu_img.to(self.args.device, non_blocking=True)
+            # input_tea_img, input_stu_img, input_text = batch[0], batch[1], batch[2]
+            # input_tea_img = input_tea_img.to(self.args.device, non_blocking=True)
+            # input_stu_img = input_stu_img.to(self.args.device, non_blocking=True)
+            input_img = batch[0]
+            input_text = batch[1]
+            input_img = input_img.to(self.args.device, non_blocking=True)
             input_text = {k: v.to(self.args.device, non_blocking=True) for k, v in input_text.items()}
 
             self.optimizer = self.scheduler.distill_update_lr(self.optimizer, len(self.train_dataloader), epoch, batch_id)
             if not self.args.amp:
-                logits_per_image, logits_per_text, logits_per_image_teacher, logits_per_text_teacher, distill_label_image, distill_label_text = self.model(input_tea_img, input_stu_img, input_text)
+                logits_per_image, logits_per_text, logits_per_image_teacher, logits_per_text_teacher, distill_label_image, distill_label_text = self.model(input_img, input_text)
                 loss = self.criterion(logits_per_image, logits_per_text, distill_label_image, distill_label_text)
             else:
                 with torch.cuda.amp.autocast():
-                    logits_per_image, logits_per_text, logits_per_image_teacher, logits_per_text_teacher, distill_label_image, distill_label_text = self.model(input_tea_img, input_stu_img, input_text)
+                    logits_per_image, logits_per_text, logits_per_image_teacher, logits_per_text_teacher, distill_label_image, distill_label_text = self.model(input_img, input_text)
                     loss = self.criterion(logits_per_image, logits_per_text, distill_label_image, distill_label_text)
                 
             loss = loss / self.args.accumulate_step
@@ -901,13 +904,16 @@ class TrainerDistributedDistill(object):
             processed_samples = 0
 
             for batch_id, batch in enumerate(tqdm(self.val_dataloader)):
-                input_tea_img, input_stu_img, input_text = batch[0], batch[1], batch[2]
-                input_tea_img = input_tea_img.to(self.args.device)
-                input_stu_img = input_stu_img.to(self.args.device)
+                # input_tea_img, input_stu_img, input_text = batch[0], batch[1], batch[2]
+                # input_tea_img = input_tea_img.to(self.args.device)
+                # input_stu_img = input_stu_img.to(self.args.device)
+                input_img = batch[0]
+                input_text = batch[1]
+                input_img = input_img.to(self.args.device, non_blocking=True)
                 input_text = {k: v.to(self.args.device, non_blocking=True) for k, v in input_text.items()}
 
                 tea_img_latents, stu_img_latents, text_latents = self.model(
-                input_tea_img, input_stu_img, input_text, return_latent_only=True)
+                input_img, input_text, return_latent_only=True)
 
                 logits_per_image = logit_scale * stu_img_latents @ text_latents.t()
                 logits_per_text = logit_scale * text_latents @ stu_img_latents.t()

@@ -87,8 +87,8 @@ def get_args_parser():
 
     # distill arguments
     parser.add_argument('--is_distill', action='store_false', default=True)
-    parser.add_argument('--tea-size', type=int, default=224)
-    parser.add_argument('--stu-size', type=int, default=192)
+    parser.add_argument('--tea-img-size', type=int, default=224)
+    parser.add_argument('--stu-img-size', type=int, default=192)
     parser.add_argument('--distill-model', type=str, default='swin_mini4')
     parser.add_argument('--distill_train_rank', type=list, default=[1])
     parser.add_argument('--distill_train_metric_names', type=list, default=['Loss', 'TeaV2LAcc_R1', 'TeaL2VAcc_R1', 'StuV2LAcc_R1', 'StuL2VAcc_R1'])

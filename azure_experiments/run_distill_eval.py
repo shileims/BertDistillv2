@@ -6,8 +6,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--basedir')
 parser.add_argument('--tag', type=str, default='')
 parser.add_argument('--modeldir', type=str, default='')
-parser.add_argument('--experiment_name', type=str, default='distill_refactor_1.4M_eval')
-parser.add_argument('--eval_model_dir', type=str, default='distill_refactor_1.4M')
+parser.add_argument('--experiment_name', type=str, default='distill_refactor_2M_0724_eval')
+parser.add_argument('--eval_model_dir', type=str, default='distill_refactor_dist_2M_32e_0726')
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--dataset-path', type=str, default='cocoir')
 parser.add_argument('--debug', action='store_false', default=False)
@@ -62,7 +62,7 @@ if __name__ == '__main__':
                     --dataset_path {} \
                     --debug \
                     --debug_batch_size {} \
-                    --stu-size {} \
+                    --stu-img-size {} \
                     --distill-model {} \
                     --eval_model_dir {} ".format(vlmodel_pretrain, args.batch_size, dataset_path, args.debug_batch_size,  stu_size, distill_model, eval_model_dir))
     else:
@@ -71,7 +71,7 @@ if __name__ == '__main__':
                             --batch-size {} \
                             --dataset_path {} \
                             --debug_batch_size {} \
-                            --stu-size {} \
+                            --stu-img-size {} \
                             --distill-model {} \
                             --eval_model_dir {}".format(vlmodel_pretrain, args.batch_size, dataset_path,
                                                     args.debug_batch_size,

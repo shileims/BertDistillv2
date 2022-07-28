@@ -26,12 +26,12 @@ def get_args_parser():
     # gerneral arguments
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--batch-size', default=8, type=int)
-    parser.add_argument('--train_fix_length', type=int, default=2048, help='The default is 1483257')
+    parser.add_argument('--train_fix_length', type=int, default=2000000, help='The default is 1483257')
     parser.add_argument('--val_fix_length', type=int, default=2048, help='The default is 1483257')
-    parser.add_argument('--dataset', default='SStockDistill', type=str)
+    parser.add_argument('--dataset', default='SStock', type=str)
     parser.add_argument('--train_sampler', default='RandomSampler', type=str)
     parser.add_argument('--val_sampler', default='SequentialSampler', type=str)
-    parser.add_argument('--collator', default='SStockCollatorDistill', type=str)
+    parser.add_argument('--collator', default='SStockCollator', type=str)
     parser.add_argument('--dataset_path', default='/home/shilei/datasets/SS200M_split_0')
     parser.add_argument('--transforms', default='SStockTransformsDistill')
 
@@ -119,8 +119,8 @@ def get_args_parser():
 
     # distill arguments
     parser.add_argument('--is_distill', action='store_false', default=True)
-    parser.add_argument('--tea-size', type=int, default=224)
-    parser.add_argument('--stu-size', type=int, default=192)
+    parser.add_argument('--tea-img-size', type=int, default=224)
+    parser.add_argument('--stu-img-size', type=int, default=192)
     parser.add_argument('--distill-model', type=str, default='swin_mini4')
     parser.add_argument('--distill_train_rank', type=list, default=[1])
     parser.add_argument('--distill_train_metric_names', type=list, default=['Loss', 'TeaV2LAcc_R1', 'TeaL2VAcc_R1', 'StuV2LAcc_R1', 'StuL2VAcc_R1'])
@@ -327,8 +327,17 @@ def main_distill_dist(args):
     g.manual_seed(seed)
 
     # build dataloader
-    args.train_sampler = 'DistributedSampler'
-    args.val_sampler = 'DistributedSampler'
+    if args.train_fix_length > 2e6:
+        args.train_sampler = 'RandomSampler'
+        args.val_sampler = 'SequentialSampler'
+        # args.train_sampler = 'DistributedSampler'
+        # args.val_sampler = 'DistributedSampler'
+        args.dataset = 'DistribSStockDistill'
+    else:
+        args.dataset = 'SStockDistill'
+        args.train_sampler = 'DistributedSampler'
+        args.val_sampler = 'DistributedSampler'
+
     args.num_tasks = get_world_size()
     args.global_rank = get_rank()
     train_data, val_data, _ = create_distill_train_val_data_loader(args)

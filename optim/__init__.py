@@ -133,7 +133,7 @@ def build_distill_optimizer_parameters_group(args, model):
         n_parameters = sum(p.numel() for p in model.module.parameters() if p.requires_grad)
         logger.info(f'Vision-language model # of trainable params: {n_parameters / 10 ** 6}M')
         distill_model_flops = FlopCountAnalysis(model.module.distill_model,
-                                                torch.zeros(2, 3, args.stu_size, args.stu_size).to(args.device))
+                                                torch.zeros(2, 3, args.stu_img_size, args.stu_img_size).to(args.device))
         logger.info(f'Distill model flops: {flop_count_table(distill_model_flops)}')
     else:
         n_parameters = sum(p.numel() for p in model.distill_model.parameters() if p.requires_grad)
@@ -145,7 +145,7 @@ def build_distill_optimizer_parameters_group(args, model):
         n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
         logger.info(f'Vision-language model # of trainable params: {n_parameters / 10 ** 6}M')
         distill_model_flops = FlopCountAnalysis(model.distill_model,
-                                                torch.zeros(2, 3, args.stu_size, args.stu_size).to(args.device))
+                                                torch.zeros(2, 3, args.stu_img_size, args.stu_img_size).to(args.device))
         logger.info(f'Distill model flops: {flop_count_table(distill_model_flops)}')
 
     optimizer_grouped_parameters = model.parameters()

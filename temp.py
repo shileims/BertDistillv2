@@ -87,5 +87,8 @@ if __name__ == '__main__':
     # c = 'a'
     # b = 'b.pth'
     # print(os.path.join(c, b), os.path.join(a, b))
-    xx = globals()
-    print(type(xx))
+    # xx = globals()
+    # print(type(xx))
+    x = 2e6
+    y = 2000000
+    print(y/x)

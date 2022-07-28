@@ -7,7 +7,7 @@ from torchvision.transforms import Normalize, Compose
 class SStockTransformsDistill(object):
     def __init__(self, args, is_train=True):
         self.trans = create_transform(
-            input_size=max(args.tea_size, args.stu_size),
+            input_size=max(args.tea_img_size, args.stu_img_size),
             is_training=is_train,
             hflip=0.5,
             color_jitter=args.color_jitter if args.color_jitter > 0 else None,

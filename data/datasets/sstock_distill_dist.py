@@ -20,11 +20,18 @@ SStock data == BING data
 """
 
 @Datasets.register_module
-class SStockDistill(BaseDataset):
+class DistribSStockDistill(BaseDataset):
     def __init__(self, data_path, transforms=None, tea_img_size=224, stu_img_size=224, is_train=True, fix_length=1483257, debug=False):
         assert transforms is not None, f'data augmentation should not be none'
         if not debug:
-            data_name = {True: '0,1', False: '1'}
+            data_str = ''
+            for file in os.listdir(data_path):
+                if file.endswith('.json'):
+                    strs = file.strip().split('.json')[0].split('_')[-1]
+                    data_str += strs
+                    data_str += ','
+            data_str = data_str[:-1]
+            data_name = {True: data_str, False: '0,1,2,3,10,11,12,13'}
         else:
             data_name = {True: '0', False: '0'}
         self._data_name = data_name
@@ -41,33 +48,38 @@ class SStockDistill(BaseDataset):
         assert dataset_name is not None, f'dataset_name should not be none'
         datasets = dataset_name.strip().split(',')
 
+        global_rank = int(dist.get_rank())
+        total_gpu = int(dist.get_world_size())
+        tsv_per_gpu = len(datasets) // total_gpu
+        fix_length = self.fix_length // total_gpu
+        print(f'Global rank {global_rank}')
         full_info = []
-        for i in datasets:
-            json_path = os.path.join(self._data_path, f'split_{i}.json')
+        for i in range(tsv_per_gpu):
+            data_idx = tsv_per_gpu * global_rank + i
+            json_path = os.path.join(self._data_path, f'split_{datasets[data_idx]}.json')
             print(f'Reading json data from {json_path}')
             _full_info = json.load(
-                open(os.path.join(self._data_path, f'split_{i}.json')))
+                open(os.path.join(self._data_path, f'split_{data_idx}.json')))
             full_info.extend(list(_full_info.values()))
-            if len(full_info) >= self.fix_length:
+            if len(full_info) >= fix_length:
                 break
-        full_info = full_info[:self.fix_length]
+        full_info = full_info[:fix_length]
 
-        if len(full_info) < self.fix_length:
-            print(f' warning :: sstock only have {len(full_info)}, need {self.fix_length}, resample to it!!')
+        if len(full_info) < fix_length:
+            print(f' warning :: sstock only have {len(full_info)}, need {fix_length}, resample to it!!')
             pad_info = []
-            for _j in range((self.fix_length - len(full_info)) // len(full_info)):
+            for _j in range((fix_length - len(full_info))//len(full_info)):
                 full_info_shuffle = copy.deepcopy(full_info)
                 random.shuffle(full_info_shuffle)
                 pad_info += full_info_shuffle
 
-            pad_info += random.choices(full_info, k=(self.fix_length - len(full_info)) % len(full_info))
+            pad_info += random.choices(full_info, k=(fix_length - len(full_info))%len(full_info))
 
             full_info += pad_info
 
         for info in full_info:
             self.database.append([info['img_caption'], os.path.join(self._data_path,
                                                                     f'split_{info["img_location"]}.tsv/{info["lineidx_ptr"]}')])
-
     def deconfusing(self, string):
         confuse_head = r'this is a head'.encode('utf-8')
         if string.startswith(confuse_head):
