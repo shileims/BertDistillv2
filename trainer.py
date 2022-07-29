@@ -732,14 +732,14 @@ class TrainerDistributedDistill(object):
                 logger.info('Checkpoints saved at: {}'.format(save_ckpt_path), print_line=True)
 
 
-            tea_val_v2laccs, tea_val_l2vaccs, stu_val_v2laccs, stu_val_l2vaccs, val_loss = self.val_epoch(epoch)
+            # tea_val_v2laccs, tea_val_l2vaccs, stu_val_v2laccs, stu_val_l2vaccs, val_loss = self.val_epoch(epoch)
 
             if self.tb_log_writter is not None and self.is_master:
                 lr_list = self.scheduler.retrieve_lr(self.optimizer)
                 for g_id, lr_val in enumerate(lr_list):
                     self.tb_log_writter.add_scalar('LR/Group-{}'.format(g_id), round(lr_val, 6), epoch)
                 self.tb_log_writter.add_scalar('Train/Loss', round(train_loss, 2), epoch)
-                self.tb_log_writter.add_scalar('Val/Loss', round(val_loss, 2), epoch)
+                # self.tb_log_writter.add_scalar('Val/Loss', round(val_loss, 2), epoch)
                 for k, v in tea_train_v2laccs.items():
                     self.tb_log_writter.add_scalar(f'Train/{k}', round(v, 2), epoch)
                 for k, v in tea_train_l2vaccs.items():
@@ -748,14 +748,14 @@ class TrainerDistributedDistill(object):
                     self.tb_log_writter.add_scalar(f'Train/{k}', round(v, 2), epoch)
                 for k, v in stu_train_l2vaccs.items():
                     self.tb_log_writter.add_scalar(f'Train/{k}', round(v, 2), epoch)
-                for k, v in tea_val_v2laccs.items():
-                    self.tb_log_writter.add_scalar(f'Val/{k}', round(v, 2), epoch)
-                for k, v in tea_val_l2vaccs.items():
-                    self.tb_log_writter.add_scalar(f'Val/{k}', round(v, 2), epoch)
-                for k, v in stu_val_v2laccs.items():
-                    self.tb_log_writter.add_scalar(f'Val/{k}', round(v, 2), epoch)
-                for k, v in stu_val_l2vaccs.items():
-                    self.tb_log_writter.add_scalar(f'Val/{k}', round(v, 2), epoch)
+                # for k, v in tea_val_v2laccs.items():
+                #     self.tb_log_writter.add_scalar(f'Val/{k}', round(v, 2), epoch)
+                # for k, v in tea_val_l2vaccs.items():
+                #     self.tb_log_writter.add_scalar(f'Val/{k}', round(v, 2), epoch)
+                # for k, v in stu_val_v2laccs.items():
+                #     self.tb_log_writter.add_scalar(f'Val/{k}', round(v, 2), epoch)
+                # for k, v in stu_val_l2vaccs.items():
+                #     self.tb_log_writter.add_scalar(f'Val/{k}', round(v, 2), epoch)
 
         torch.cuda.empty_cache()
 

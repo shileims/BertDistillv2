@@ -98,6 +98,15 @@ def create_distill_train_val_data_loader(args):
     val_loader   = create_distill_val_data_loader(args, dataset, val_sampler, collator)
     return train_loader, val_loader, collator()
 
+def _create_distill_train_data_loader(args):
+    dataset = Datasets.get(args.dataset)
+    train_sampler = Samplers.get(args.train_sampler)
+    collator = Collators.get(args.collator)
+
+    train_loader = create_distill_train_data_loader(args, dataset, train_sampler, collator)
+    return train_loader
+
+
 def create_distill_val_dataset(args, dataset):
     is_train = False
     val_transforms = Transforms.get(args.transforms)(args, is_train=is_train)

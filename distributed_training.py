@@ -20,8 +20,8 @@ parser.add_argument('--epochs', type=int, default=16)
 parser.add_argument('--nodes', type=int, default=1)
 parser.add_argument('--node_index', type=int, default=0)
 parser.add_argument('--resume', type=str, default='')
-parser.add_argument('--master_addr', type=str, default="10.0.0.4")
-parser.add_argument('--master_port', type=str, default='50000')
+parser.add_argument('--master_addr', type=str, default="10.0.0.5")
+parser.add_argument('--master_port', type=str, default='50001')
 args = parser.parse_args()
 
 node_num = args.node_num
@@ -29,7 +29,7 @@ num_workers = int(node_num)
 
 lr = 5e-4
 lr_scale = 1
-lr_scale *= args.batch_size * node_num / 8 / 256
+lr_scale *= args.batch_size * node_num * args.nodes / 8 / 256
 
 if 'SS2M' in args.dataset_path:
     os.system("./azcopy copy 'https://lei2021.blob.core.windows.net/swintransori/SS2M?sp=racwdli&st=2022-07-22T03:00:10Z&se=2022-08-01T11:00:10Z&sv=2021-06-08&sr=c&sig=lkCl%2BT4%2FLQBNRr4V5%2B9ogMhCZ4bbXCqFeThJqDqVKiY%3D' './' --recursive")

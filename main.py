@@ -7,7 +7,7 @@ import json
 import numpy as np
 import torch.cuda.amp as amp
 
-from data import create_train_val_data_loader, create_train_data_loader, create_distill_train_val_data_loader
+from data import create_train_val_data_loader, create_train_data_loader, create_distill_train_val_data_loader, create_distill_train_data_loader, _create_distill_train_data_loader
 from utils import device_initialize
 from model import create_model, create_distill_model, create_distill_quantization_model
 from optim import build_optimizer, build_distill_optimizer
@@ -340,9 +340,13 @@ def main_distill_dist(args):
 
     args.num_tasks = get_world_size()
     args.global_rank = get_rank()
-    train_data, val_data, _ = create_distill_train_val_data_loader(args)
-    train_dataloader, val_dataloader = train_data[-1], val_data[-1]
+    # train_data, val_data, _ = create_distill_train_val_data_loader(args)
+    # train_dataloader, val_dataloader = train_data[-1], val_data[-1]
+    # train_sampler = train_data[1]
+    train_data = _create_distill_train_data_loader(args)
     train_sampler = train_data[1]
+    train_dataloader = train_data[-1]
+    val_dataloader = None
 
     # build model
     model = create_distill_model(args)

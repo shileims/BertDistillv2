@@ -43,10 +43,8 @@ COMPUTE_TARGET_TO_VM_SIZE = { "NC24s-v3" : "STANDARD_NC24S_V3", "OXO-ML-CA-NC12"
                               "lei4g3": "STANDARD_NC24S_V2",
                               "lei-mmtraining": "STANDARD_ND40RS_V2",
                               "OXO-ML-CA-cpu": "Standard_F4s_v2",
-                              "lei-compute-cpu": "Standard_F64s_v2",
-                              }
+                              "lei-compute-cpu": "Standard_F64s_v2",}
 DEFAULT_COMPUTE_TARGET = list(COMPUTE_TARGET_TO_VM_SIZE.keys())[0]
-
 
 configs_defaultsinglegpu = {}
 configs_defaultsinglegpu['config.json'] = ['OXO-ML-CA-Comput', 'lei2021datastore']
@@ -64,7 +62,6 @@ sstock_settings = {8:'config_dummtraining.json', 4:['config_shilei.json', 'confi
 configs_u2netdatastore = {}
 configs_u2netdatastore['config_shilei.json'] = [['lei4g1', 'lei4g1'], ['lei4g2', 'lei4g1'], ['lei4g3', 'lei4g1']]
 configs_u2netdatastore['config.json'] = ['lei-compute', 'leiu2netdatastore']
-
 
 def convert_string_to_bool(str_to_convert):
     return str_to_convert.lower() in ('yes', 'true', 't', 'y', '1')
@@ -132,24 +129,24 @@ parser.add_argument(script_path_arg_name,       type=str,                    des
 parser.add_argument(script_exp_arg_name,        type=str,                    dest='experiment_name',        default='distill_refactor',                            help='Name of the Azure experiment. This can be anything you want.')
 parser.add_argument('--experiment_name_extra', type=str, default='', help='Extra name is added to experiment name')
 
-parser.add_argument('--gpu_num', type=int, default=4, help='Specify the gpu number for each node in distributed training')
+parser.add_argument('--gpu_num', type=int, default=8, help='Specify the gpu number for each node in distributed training')
 parser.add_argument('--nodes', type=int, default=2, help='Specify the number of nodes for distributed training.')
 parser.add_argument('--node_index', type=int, default=1, help='Specify the node rank for multi-node distributed training')
 parser.add_argument('--config_type', type=str, default='configs_sstock', choices=['configs_sstock', 'configs_u2netdatastore', 'configs_defaultsinglegpu', 'configs_defaultcpus'])
 parser.add_argument('--config_setting', type=str, default='sstock_settings')
 parser.add_argument('--config_index', type=int, default=0, help='Specify which workspace for training 4-P100s, if the gpu num == 4')
 parser.add_argument('--compute_index', type=int, default=0, help='Specify which lei-compute is used for training 4-P100s')
-parser.add_argument('--total_data', type=int, default=200000000, choices=[2000000, 200000000])
+parser.add_argument('--total_data', type=int, default=3000000, choices=[2000000, 200000000, 3000000])
 # parser.add_argument('--resume', type=str, default='distill_refactor_dist_2M_32e_0726/swin_mini1/ckpts/checkpoint_31.pth')
 parser.add_argument('--resume', type=str, default='')
-parser.add_argument('--epochs', type=int, default=256)
+parser.add_argument('--epochs', type=int, default=128)
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--debug', type=str, default='False', choices=['True', 'False'])
 
 # singlegpu training
 parser.add_argument('--eval_script_path', type=str, default='azure_experiments/run_distill_eval.py', help='Relative path from the \"pipeline\" directory to the .py script to run. Something like ./azureml_tutorial/solutions/01_hello_world.py')
 parser.add_argument('--dataset_path', type=str, default='cocoir')
-parser.add_argument('--eval_model_dir', type=str, default='distill_refactor_dist_2.0M_32_2022726_resume')
+parser.add_argument('--eval_model_dir', type=str, default='distill_refactor-dist_2.0M_64_2022726')
 
 # support docker image
 parser.add_argument('--custom-docker-image', type=str, default='philly/jobs/custom/pytorch:pytorch1.2.0-py36-nlp-sum-fp16')
@@ -311,7 +308,7 @@ if __name__ == '__main__':
                          process_count_per_node=1,
                          use_gpu=True,
                          use_docker=True,
-                         shm_size='1024G',
+                         shm_size='512G',
                          image_registry_details=make_container_registry(
                              address=None,
                              username='lshi22',
