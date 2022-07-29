@@ -42,7 +42,9 @@ def save_checkpoint(train_iterations, model, optimizer, epoch, args, checkpoint_
 
 def load_checkpoint(args, auto_resume, resume, model, optimizer):
     res = ''
-    if auto_resume:
+    if resume:
+        res = resume
+    elif auto_resume:
         ckpt_loc = '{}/{}/checkpoint_'.format(args.output_dir, 'ckpts')
         for epoch in range(args.epochs)[::-1]:
             res = Path(ckpt_loc + str(epoch) + CHECKPOINT_EXTN)
@@ -50,8 +52,6 @@ def load_checkpoint(args, auto_resume, resume, model, optimizer):
                 break
         if not res.exists():
             res = ''
-    elif resume:
-        res = resume
 
     if not res:
         logger.log('No checkpoint is found for resuming training!')
@@ -62,9 +62,12 @@ def load_checkpoint(args, auto_resume, resume, model, optimizer):
     checkpoint = torch.load(res, map_location='cpu')
     stat = model_load_func(model.module if hasattr(model, 'module') else model)(checkpoint['model'], strict=strict)
     logger.log(stat)
-    optimizer.load_state_dict(checkpoint['optimizer'])
-    args.start_epoch = checkpoint['epoch'] + 1
-    logger.log(" --------------> resume from {}; start epoch {}".format(args.resume, args.start_epoch))
+    if resume:
+        logger.log(" --------------> loading pretrained weights from {}; start epoch {}".format(args.resume, args.start_epoch))
+    elif auto_resume:
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        args.start_epoch = checkpoint['epoch'] + 1
+        logger.log(" --------------> resume from {}; start epoch {}".format(args.resume, args.start_epoch))
     if args.is_dist:
         torch.distributed.barrier()
 

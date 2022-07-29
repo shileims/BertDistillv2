@@ -19,6 +19,7 @@ parser.add_argument('--val_num_samples', type=int, default=1024)
 parser.add_argument('--debug_batch_size', type=int, default=64)
 parser.add_argument('--nodes', type=int, default=1)
 parser.add_argument('--node_index', type=int, default=0)
+parser.add_argument('--resume', type=str, default='')
 args = parser.parse_args()
 
 if __name__ == '__main__':
@@ -34,6 +35,9 @@ if __name__ == '__main__':
     distill_model = args.tag
     output_dir = args.experiment_name
     debug = args.debug
+
+    if args.resume:
+        args.resume = os.path.join(args.basedir, args.resume)
 
     vlmodel_pretrain = os.path.join(modeldir, 'ss200m_vl_for_distill.pth')
 
@@ -60,35 +64,80 @@ if __name__ == '__main__':
     output_dir = str(output_dir)
 
     if not debug_flag[args.debug]:
-        os.system("python distributed_training.py \
-                    --vlmodel-pretrain {} \
-                    --batch-size {} \
-                    --dataset_path {} \
-                    --debug \
-                    --debug_batch_size {} \
-                    --val_num_samples {} \
-                    --train_num_samples {} \
-                    --stu-img-size {} \
-                    --distill-model {} \
-                    --output_dir {} \
-                    --node_num {} \
-                    --total_data {} \
-                    --epochs {} \
-                    --nodes {} \
-                    --node_index {}".format(vlmodel_pretrain, args.batch_size, dataset_path, args.debug_batch_size, args.val_num_samples, args.train_num_samples, stu_size, distill_model, output_dir, args.node_num, args.total_data, args.epochs, args.nodes, args.node_index))
+        if args.resume:
+            os.system("python distributed_training.py \
+                        --vlmodel-pretrain {} \
+                        --batch-size {} \
+                        --dataset_path {} \
+                        --debug \
+                        --debug_batch_size {} \
+                        --val_num_samples {} \
+                        --train_num_samples {} \
+                        --stu-img-size {} \
+                        --distill-model {} \
+                        --output_dir {} \
+                        --node_num {} \
+                        --total_data {} \
+                        --epochs {} \
+                        --nodes {} \
+                        --node_index {} \
+                        --resume {}".format(vlmodel_pretrain, args.batch_size, dataset_path, args.debug_batch_size, args.val_num_samples, args.train_num_samples, stu_size, distill_model, output_dir, args.node_num, args.total_data, args.epochs, args.nodes, args.node_index, args.resume))
+        else:
+            os.system("python distributed_training.py \
+                                    --vlmodel-pretrain {} \
+                                    --batch-size {} \
+                                    --dataset_path {} \
+                                    --debug \
+                                    --debug_batch_size {} \
+                                    --val_num_samples {} \
+                                    --train_num_samples {} \
+                                    --stu-img-size {} \
+                                    --distill-model {} \
+                                    --output_dir {} \
+                                    --node_num {} \
+                                    --total_data {} \
+                                    --epochs {} \
+                                    --nodes {} \
+                                    --node_index {}".format(vlmodel_pretrain, args.batch_size, dataset_path,
+                                                        args.debug_batch_size, args.val_num_samples,
+                                                        args.train_num_samples, stu_size, distill_model, output_dir,
+                                                        args.node_num, args.total_data, args.epochs, args.nodes,
+                                                        args.node_index))
     else:
-        os.system("python distributed_training.py \
-                    --vlmodel-pretrain {} \
-                    --batch-size {} \
-                    --dataset_path {} \
-                    --debug_batch_size {} \
-                    --val_num_samples {} \
-                    --train_num_samples {} \
-                    --stu-img-size {} \
-                    --distill-model {} \
-                    --output_dir {} \
-                    --node_num {} \
-                    --total_data {} \
-                    --epochs {} \
-                    --nodes {} \
-                    --node_index {}".format(vlmodel_pretrain, args.batch_size, dataset_path, args.debug_batch_size, args.val_num_samples, args.train_num_samples, stu_size, distill_model, output_dir, args.node_num, args.total_data, args.epochs, args.nodes, args.node_index))
+        if args.resume:
+            os.system("python distributed_training.py \
+                        --vlmodel-pretrain {} \
+                        --batch-size {} \
+                        --dataset_path {} \
+                        --debug_batch_size {} \
+                        --val_num_samples {} \
+                        --train_num_samples {} \
+                        --stu-img-size {} \
+                        --distill-model {} \
+                        --output_dir {} \
+                        --node_num {} \
+                        --total_data {} \
+                        --epochs {} \
+                        --nodes {} \
+                        --node_index {} \
+                        --resume {}".format(vlmodel_pretrain, args.batch_size, dataset_path, args.debug_batch_size, args.val_num_samples, args.train_num_samples, stu_size, distill_model, output_dir, args.node_num, args.total_data, args.epochs, args.nodes, args.node_index, args.resume))
+        else:
+            os.system("python distributed_training.py \
+                                    --vlmodel-pretrain {} \
+                                    --batch-size {} \
+                                    --dataset_path {} \
+                                    --debug_batch_size {} \
+                                    --val_num_samples {} \
+                                    --train_num_samples {} \
+                                    --stu-img-size {} \
+                                    --distill-model {} \
+                                    --output_dir {} \
+                                    --node_num {} \
+                                    --total_data {} \
+                                    --epochs {} \
+                                    --nodes {} \
+                                    --node_index {}".format(vlmodel_pretrain, args.batch_size, dataset_path,
+                                                        args.debug_batch_size, args.val_num_samples,
+                                                        args.train_num_samples, stu_size, distill_model, output_dir,
+                                                        args.node_num, args.total_data, args.epochs, args.nodes,
+                                                        args.node_index))

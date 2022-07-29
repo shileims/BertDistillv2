@@ -19,6 +19,9 @@ parser.add_argument('--total_data', type=int, default=2e6)
 parser.add_argument('--epochs', type=int, default=16)
 parser.add_argument('--nodes', type=int, default=1)
 parser.add_argument('--node_index', type=int, default=0)
+parser.add_argument('--resume', type=str, default='')
+parser.add_argument('--master_addr', type=str, default="10.0.0.4")
+parser.add_argument('--master_port', type=str, default='50000')
 args = parser.parse_args()
 
 node_num = args.node_num
@@ -33,46 +36,9 @@ if 'SS2M' in args.dataset_path:
     args.dataset_path = 'SS2M'
 
 if args.nodes == 1:
-
     if args.debug:
-        os.system("python ./launch.py \
-                    --nproc_per_node {} --master_port 2999 main.py \
-                    --dataset SStockDistill \
-                    --batch-size {} \
-                    --dataset_path {} \
-                    --accumulate_step 1 \
-                    --epochs {} \
-                    --vlmodel-pretrain {} \
-                    --distill-model {} \
-                    --proj-size 256 \
-                    --backbone-lr-mult 1.0 \
-                    --backbone-lr-mult-l 1.0 \
-                    --layer-decay 1.0 \
-                    --layer-decay-l 1.0 \
-                    --fix-tau 0.05 \
-                    --stu-img-size {} \
-                    --mixup 0.0 \
-                    --cutmix 0.0 \
-                    --drop 0. \
-                    --drop-path 0.1 \
-                    --drop-att 0. \
-                    --weight-decay 0.05 \
-                    --lr {} \
-                    --warmup-lr 1e-5 \
-                    --min-lr 1e-6 \
-                    --warmup-epochs 0 \
-                    --warmup-steps 100 \
-                    --cooldown-epochs 0 \
-                    --output_dir {} \
-                    --num_workers {} \
-                    --debug_batch_size {} \
-                    --train_num_samples {} \
-                    --val_num_samples {} \
-                    --train_fix_length {} \
-                    --is_dist \
-                    ".format(node_num, args.batch_size, args.dataset_path, args.epochs, args.vlmodel_pretrain, args.distill_model, args.stu_img_size, lr*lr_scale, args.output_dir,  num_workers, args.debug_batch_size, args.train_num_samples, args.val_num_samples, args.total_data))
-    else:
-        os.system("python ./launch.py \
+        if args.resume:
+            os.system("python ./launch.py \
                         --nproc_per_node {} --master_port 2999 main.py \
                         --dataset SStockDistill \
                         --batch-size {} \
@@ -85,7 +51,6 @@ if args.nodes == 1:
                         --backbone-lr-mult 1.0 \
                         --backbone-lr-mult-l 1.0 \
                         --layer-decay 1.0 \
-                        --debug \
                         --layer-decay-l 1.0 \
                         --fix-tau 0.05 \
                         --stu-img-size {} \
@@ -96,7 +61,7 @@ if args.nodes == 1:
                         --drop-att 0. \
                         --weight-decay 0.05 \
                         --lr {} \
-                        --warmup-lr 1e-6 \
+                        --warmup-lr 1e-5 \
                         --min-lr 1e-6 \
                         --warmup-epochs 0 \
                         --warmup-steps 100 \
@@ -107,52 +72,142 @@ if args.nodes == 1:
                         --train_num_samples {} \
                         --val_num_samples {} \
                         --train_fix_length {} \
+                        --resume {} \
                         --is_dist \
-                        ".format(node_num, args.batch_size, args.dataset_path, args.epochs, args.vlmodel_pretrain, args.distill_model,
-                                 args.stu_img_size, lr * lr_scale, args.output_dir, num_workers, args.debug_batch_size,
-                                 args.train_num_samples, args.val_num_samples, args.total_data))
+                        ".format(node_num, args.batch_size, args.dataset_path, args.epochs,
+                                 args.vlmodel_pretrain, args.distill_model, args.stu_img_size,
+                                 lr*lr_scale, args.output_dir,  num_workers, args.debug_batch_size,
+                                 args.train_num_samples, args.val_num_samples, args.total_data, args.resume))
+        else:
+            os.system("python ./launch.py \
+                                --nproc_per_node {} --master_port 2999 main.py \
+                                --dataset SStockDistill \
+                                --batch-size {} \
+                                --dataset_path {} \
+                                --accumulate_step 1 \
+                                --epochs {} \
+                                --vlmodel-pretrain {} \
+                                --distill-model {} \
+                                --proj-size 256 \
+                                --backbone-lr-mult 1.0 \
+                                --backbone-lr-mult-l 1.0 \
+                                --layer-decay 1.0 \
+                                --layer-decay-l 1.0 \
+                                --fix-tau 0.05 \
+                                --stu-img-size {} \
+                                --mixup 0.0 \
+                                --cutmix 0.0 \
+                                --drop 0. \
+                                --drop-path 0.1 \
+                                --drop-att 0. \
+                                --weight-decay 0.05 \
+                                --lr {} \
+                                --warmup-lr 1e-5 \
+                                --min-lr 1e-6 \
+                                --warmup-epochs 0 \
+                                --warmup-steps 100 \
+                                --cooldown-epochs 0 \
+                                --output_dir {} \
+                                --num_workers {} \
+                                --debug_batch_size {} \
+                                --train_num_samples {} \
+                                --val_num_samples {} \
+                                --train_fix_length {} \
+                                --is_dist \
+                                ".format(node_num, args.batch_size, args.dataset_path, args.epochs,
+                                         args.vlmodel_pretrain, args.distill_model, args.stu_img_size, lr * lr_scale,
+                                         args.output_dir, num_workers, args.debug_batch_size, args.train_num_samples,
+                                         args.val_num_samples, args.total_data))
+    else:
+        if args.resume:
+            os.system("python ./launch.py \
+                            --nproc_per_node {} --master_port 2999 main.py \
+                            --dataset SStockDistill \
+                            --batch-size {} \
+                            --dataset_path {} \
+                            --accumulate_step 1 \
+                            --epochs {} \
+                            --vlmodel-pretrain {} \
+                            --distill-model {} \
+                            --proj-size 256 \
+                            --backbone-lr-mult 1.0 \
+                            --backbone-lr-mult-l 1.0 \
+                            --layer-decay 1.0 \
+                            --debug \
+                            --layer-decay-l 1.0 \
+                            --fix-tau 0.05 \
+                            --stu-img-size {} \
+                            --mixup 0.0 \
+                            --cutmix 0.0 \
+                            --drop 0. \
+                            --drop-path 0.1 \
+                            --drop-att 0. \
+                            --weight-decay 0.05 \
+                            --lr {} \
+                            --warmup-lr 1e-6 \
+                            --min-lr 1e-6 \
+                            --warmup-epochs 0 \
+                            --warmup-steps 100 \
+                            --cooldown-epochs 0 \
+                            --output_dir {} \
+                            --num_workers {} \
+                            --debug_batch_size {} \
+                            --train_num_samples {} \
+                            --val_num_samples {} \
+                            --train_fix_length {} \
+                            --resume {} \
+                            --is_dist \
+                            ".format(node_num, args.batch_size, args.dataset_path, args.epochs, args.vlmodel_pretrain, args.distill_model,
+                                     args.stu_img_size, lr * lr_scale, args.output_dir, num_workers, args.debug_batch_size,
+                                     args.train_num_samples, args.val_num_samples, args.total_data, args.resume))
+        else:
+            os.system("python ./launch.py \
+                                        --nproc_per_node {} --master_port 2999 main.py \
+                                        --dataset SStockDistill \
+                                        --batch-size {} \
+                                        --dataset_path {} \
+                                        --accumulate_step 1 \
+                                        --epochs {} \
+                                        --vlmodel-pretrain {} \
+                                        --distill-model {} \
+                                        --proj-size 256 \
+                                        --backbone-lr-mult 1.0 \
+                                        --backbone-lr-mult-l 1.0 \
+                                        --layer-decay 1.0 \
+                                        --debug \
+                                        --layer-decay-l 1.0 \
+                                        --fix-tau 0.05 \
+                                        --stu-img-size {} \
+                                        --mixup 0.0 \
+                                        --cutmix 0.0 \
+                                        --drop 0. \
+                                        --drop-path 0.1 \
+                                        --drop-att 0. \
+                                        --weight-decay 0.05 \
+                                        --lr {} \
+                                        --warmup-lr 1e-6 \
+                                        --min-lr 1e-6 \
+                                        --warmup-epochs 0 \
+                                        --warmup-steps 100 \
+                                        --cooldown-epochs 0 \
+                                        --output_dir {} \
+                                        --num_workers {} \
+                                        --debug_batch_size {} \
+                                        --train_num_samples {} \
+                                        --val_num_samples {} \
+                                        --train_fix_length {} \
+                                        --is_dist \
+                                        ".format(node_num, args.batch_size, args.dataset_path, args.epochs,
+                                                 args.vlmodel_pretrain, args.distill_model,
+                                                 args.stu_img_size, lr * lr_scale, args.output_dir, num_workers,
+                                                 args.debug_batch_size,
+                                                 args.train_num_samples, args.val_num_samples, args.total_data))
 else:
     # muti-node distributed training
     if args.debug:
-        os.system("python ./launch.py \
-                    --nproc_per_node {} --nnodes {} --node_rank {} --master_addr 192.168.1.1 --master_port 1234 main.py \
-                    --dataset SStockDistill \
-                    --batch-size {} \
-                    --dataset_path {} \
-                    --accumulate_step 1 \
-                    --epochs {} \
-                    --vlmodel-pretrain {} \
-                    --distill-model {} \
-                    --proj-size 256 \
-                    --backbone-lr-mult 1.0 \
-                    --backbone-lr-mult-l 1.0 \
-                    --layer-decay 1.0 \
-                    --layer-decay-l 1.0 \
-                    --fix-tau 0.05 \
-                    --stu-img-size {} \
-                    --mixup 0.0 \
-                    --cutmix 0.0 \
-                    --drop 0. \
-                    --drop-path 0.1 \
-                    --drop-att 0. \
-                    --weight-decay 0.05 \
-                    --lr {} \
-                    --warmup-lr 1e-5 \
-                    --min-lr 1e-6 \
-                    --warmup-epochs 0 \
-                    --warmup-steps 100 \
-                    --cooldown-epochs 0 \
-                    --output_dir {} \
-                    --num_workers {} \
-                    --debug_batch_size {} \
-                    --train_num_samples {} \
-                    --val_num_samples {} \
-                    --train_fix_length {} \
-                    --is_dist \
-                    ".format(node_num, args.nodes, args.node_index, args.batch_size, args.dataset_path, args.epochs, args.vlmodel_pretrain, args.distill_model, args.stu_img_size, lr*lr_scale, args.output_dir,  num_workers, args.debug_batch_size, args.train_num_samples, args.val_num_samples, args.total_data))
-    else:
-        os.system("python ./launch.py \
-                        --nproc_per_node {} --nnodes {} --node_rank {} --master_addr 192.168.1.1 --master_port 1234 main.py \
+        if args.resume:
+            os.system("python ./launch.py \
+                        --nproc_per_node {} --nnodes {} --node_rank {} --master_addr {} --master_port {} main.py \
                         --dataset SStockDistill \
                         --batch-size {} \
                         --dataset_path {} \
@@ -164,7 +219,6 @@ else:
                         --backbone-lr-mult 1.0 \
                         --backbone-lr-mult-l 1.0 \
                         --layer-decay 1.0 \
-                        --debug \
                         --layer-decay-l 1.0 \
                         --fix-tau 0.05 \
                         --stu-img-size {} \
@@ -175,7 +229,7 @@ else:
                         --drop-att 0. \
                         --weight-decay 0.05 \
                         --lr {} \
-                        --warmup-lr 1e-6 \
+                        --warmup-lr 1e-5 \
                         --min-lr 1e-6 \
                         --warmup-epochs 0 \
                         --warmup-steps 100 \
@@ -186,7 +240,132 @@ else:
                         --train_num_samples {} \
                         --val_num_samples {} \
                         --train_fix_length {} \
+                        --resume {} \
                         --is_dist \
-                        ".format(node_num, args.nodes, args.node_index, args.batch_size, args.dataset_path, args.epochs, args.vlmodel_pretrain, args.distill_model,
-                                 args.stu_img_size, lr * lr_scale, args.output_dir, num_workers, args.debug_batch_size,
-                                 args.train_num_samples, args.val_num_samples, args.total_data))
+                        ".format(node_num, args.nodes, args.node_index, args.master_addr, args.master_port, args.batch_size, args.dataset_path, args.epochs, args.vlmodel_pretrain, args.distill_model, args.stu_img_size, lr*lr_scale, args.output_dir,  num_workers, args.debug_batch_size, args.train_num_samples, args.val_num_samples, args.total_data, args.resume))
+        else:
+            os.system("python ./launch.py \
+                                --nproc_per_node {} --nnodes {} --node_rank {} --master_addr {} --master_port {} main.py \
+                                --dataset SStockDistill \
+                                --batch-size {} \
+                                --dataset_path {} \
+                                --accumulate_step 1 \
+                                --epochs {} \
+                                --vlmodel-pretrain {} \
+                                --distill-model {} \
+                                --proj-size 256 \
+                                --backbone-lr-mult 1.0 \
+                                --backbone-lr-mult-l 1.0 \
+                                --layer-decay 1.0 \
+                                --layer-decay-l 1.0 \
+                                --fix-tau 0.05 \
+                                --stu-img-size {} \
+                                --mixup 0.0 \
+                                --cutmix 0.0 \
+                                --drop 0. \
+                                --drop-path 0.1 \
+                                --drop-att 0. \
+                                --weight-decay 0.05 \
+                                --lr {} \
+                                --warmup-lr 1e-5 \
+                                --min-lr 1e-6 \
+                                --warmup-epochs 0 \
+                                --warmup-steps 100 \
+                                --cooldown-epochs 0 \
+                                --output_dir {} \
+                                --num_workers {} \
+                                --debug_batch_size {} \
+                                --train_num_samples {} \
+                                --val_num_samples {} \
+                                --train_fix_length {} \
+                                --is_dist \
+                                ".format(node_num, args.nodes, args.node_index, args.master_addr, args.master_port, args.batch_size, args.dataset_path,
+                                         args.epochs, args.vlmodel_pretrain, args.distill_model, args.stu_img_size,
+                                         lr * lr_scale, args.output_dir, num_workers, args.debug_batch_size,
+                                         args.train_num_samples, args.val_num_samples, args.total_data))
+    else:
+        if args.resume:
+            os.system("python ./launch.py \
+                            --nproc_per_node {} --nnodes {} --node_rank {} --master_addr {} --master_port {} main.py \
+                            --dataset SStockDistill \
+                            --batch-size {} \
+                            --dataset_path {} \
+                            --accumulate_step 1 \
+                            --epochs {} \
+                            --vlmodel-pretrain {} \
+                            --distill-model {} \
+                            --proj-size 256 \
+                            --backbone-lr-mult 1.0 \
+                            --backbone-lr-mult-l 1.0 \
+                            --layer-decay 1.0 \
+                            --debug \
+                            --layer-decay-l 1.0 \
+                            --fix-tau 0.05 \
+                            --stu-img-size {} \
+                            --mixup 0.0 \
+                            --cutmix 0.0 \
+                            --drop 0. \
+                            --drop-path 0.1 \
+                            --drop-att 0. \
+                            --weight-decay 0.05 \
+                            --lr {} \
+                            --warmup-lr 1e-6 \
+                            --min-lr 1e-6 \
+                            --warmup-epochs 0 \
+                            --warmup-steps 100 \
+                            --cooldown-epochs 0 \
+                            --output_dir {} \
+                            --num_workers {} \
+                            --debug_batch_size {} \
+                            --train_num_samples {} \
+                            --val_num_samples {} \
+                            --train_fix_length {} \
+                            --resume {} \
+                            --is_dist \
+                            ".format(node_num, args.nodes, args.node_index, args.master_addr, args.master_port, args.batch_size, args.dataset_path, args.epochs, args.vlmodel_pretrain, args.distill_model,
+                                     args.stu_img_size, lr * lr_scale, args.output_dir, num_workers, args.debug_batch_size,
+                                     args.train_num_samples, args.val_num_samples, args.total_data, args.resume))
+        else:
+            os.system("python ./launch.py \
+                                        --nproc_per_node {} --nnodes {} --node_rank {} --master_addr {} --master_port {} main.py \
+                                        --dataset SStockDistill \
+                                        --batch-size {} \
+                                        --dataset_path {} \
+                                        --accumulate_step 1 \
+                                        --epochs {} \
+                                        --vlmodel-pretrain {} \
+                                        --distill-model {} \
+                                        --proj-size 256 \
+                                        --backbone-lr-mult 1.0 \
+                                        --backbone-lr-mult-l 1.0 \
+                                        --layer-decay 1.0 \
+                                        --debug \
+                                        --layer-decay-l 1.0 \
+                                        --fix-tau 0.05 \
+                                        --stu-img-size {} \
+                                        --mixup 0.0 \
+                                        --cutmix 0.0 \
+                                        --drop 0. \
+                                        --drop-path 0.1 \
+                                        --drop-att 0. \
+                                        --weight-decay 0.05 \
+                                        --lr {} \
+                                        --warmup-lr 1e-6 \
+                                        --min-lr 1e-6 \
+                                        --warmup-epochs 0 \
+                                        --warmup-steps 100 \
+                                        --cooldown-epochs 0 \
+                                        --output_dir {} \
+                                        --num_workers {} \
+                                        --debug_batch_size {} \
+                                        --train_num_samples {} \
+                                        --val_num_samples {} \
+                                        --train_fix_length {} \
+                                        --is_dist \
+                                        ".format(node_num, args.nodes, args.node_index, args.master_addr, args.master_port, args.batch_size,
+                                                 args.dataset_path, args.epochs, args.vlmodel_pretrain,
+                                                 args.distill_model,
+                                                 args.stu_img_size, lr * lr_scale, args.output_dir, num_workers,
+                                                 args.debug_batch_size,
+                                                 args.train_num_samples, args.val_num_samples, args.total_data
+                                                 ))

@@ -121,29 +121,35 @@ parser.add_argument('--datastore',              type=str,                    des
 parser.add_argument('--basedir',                type=str,                    dest='basedir',                default='.', help='base directory on blob')
 parser.add_argument('--extra-params',           type=str,                    dest='extra_params',                                       help='extra parameters of your script')
 
+parser.add_argument('--is_train', action='store_false', default=True)
+
+# distributed training
 # config file will be re-written by config_type and config_setting according to gpu number
 parser.add_argument('--config_file', type=str, default='config_dummtraining.json', help='Specify the workspace config file')
-
 parser.add_argument('--experiment-tag-name',    type=str, dest='experiment_tag_name', default='swin_mini1', help='add experiment tag name, which is used for distill model name')
 parser.add_argument(script_path_arg_name,       type=str,                    dest='script_path',            default='azure_experiments/run_distrib_distill.py',                           help='Relative path from the \"pipeline\" directory to the .py script to run. Something like ./azureml_tutorial/solutions/01_hello_world.py')
 # parser.add_argument(script_path_arg_name,       type=str,                    dest='script_path',            default='azure_experiments/run_distill_eval.py',                           help='Relative path from the \"pipeline\" directory to the .py script to run. Something like ./azureml_tutorial/solutions/01_hello_world.py')
 parser.add_argument(script_exp_arg_name,        type=str,                    dest='experiment_name',        default='distill_refactor',                            help='Name of the Azure experiment. This can be anything you want.')
 parser.add_argument('--experiment_name_extra', type=str, default='', help='Extra name is added to experiment name')
 
-
-parser.add_argument('--gpu_num', type=int, default=8, help='Specify the gpu number for each node in distributed training')
+parser.add_argument('--gpu_num', type=int, default=4, help='Specify the gpu number for each node in distributed training')
 parser.add_argument('--nodes', type=int, default=2, help='Specify the number of nodes for distributed training.')
 parser.add_argument('--node_index', type=int, default=1, help='Specify the node rank for multi-node distributed training')
 parser.add_argument('--config_type', type=str, default='configs_sstock', choices=['configs_sstock', 'configs_u2netdatastore', 'configs_defaultsinglegpu', 'configs_defaultcpus'])
 parser.add_argument('--config_setting', type=str, default='sstock_settings')
-parser.add_argument('--config_index', type=int, default=-1, help='Specify which workspace for training 4-P100s, if the gpu num == 4')
-parser.add_argument('--compute_index', type=int, default=-1, help='Specify which lei-compute is used for training 4-P100s')
+parser.add_argument('--config_index', type=int, default=0, help='Specify which workspace for training 4-P100s, if the gpu num == 4')
+parser.add_argument('--compute_index', type=int, default=0, help='Specify which lei-compute is used for training 4-P100s')
 parser.add_argument('--total_data', type=int, default=200000000, choices=[2000000, 200000000])
-parser.add_argument('--epochs', type=int, default=16)
+# parser.add_argument('--resume', type=str, default='distill_refactor_dist_2M_32e_0726/swin_mini1/ckpts/checkpoint_31.pth')
+parser.add_argument('--resume', type=str, default='')
+parser.add_argument('--epochs', type=int, default=256)
 parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--debug', type=str, default='False', choices=['True', 'False'])
 
-
+# singlegpu training
+parser.add_argument('--eval_script_path', type=str, default='azure_experiments/run_distill_eval.py', help='Relative path from the \"pipeline\" directory to the .py script to run. Something like ./azureml_tutorial/solutions/01_hello_world.py')
+parser.add_argument('--dataset_path', type=str, default='cocoir')
+parser.add_argument('--eval_model_dir', type=str, default='distill_refactor_dist_2.0M_32_2022726_resume')
 
 # support docker image
 parser.add_argument('--custom-docker-image', type=str, default='philly/jobs/custom/pytorch:pytorch1.2.0-py36-nlp-sum-fp16')
@@ -155,36 +161,48 @@ args = parser.parse_args()
 
 if __name__ == '__main__':
 
+    if not args.is_train:
+        args.script_path = args.eval_script_path
+
     script_path = forward_slashify(args.script_path)
     should_open_url = args.should_open_url
 
-    if 'distrib' in args.script_path:
-        args.experiment_name_extra = 'dist'
-    experiment_name = args.experiment_name + '-' + args.experiment_name_extra
-    data = args.total_data / 1e6
-    experiment_name = experiment_name + '_' + str(data) + 'M'
-    experiment_name = experiment_name + '_' + str(args.epochs)
-    experiment_name = experiment_name + '_' + str(year) + str(month) + str(day)
+    if args.is_train:
+        if 'distrib' in args.script_path:
+            args.experiment_name_extra = 'dist'
+        experiment_name = args.experiment_name + '_' + args.experiment_name_extra
+        data = args.total_data / 1e6
+        experiment_name = experiment_name + '_' + str(data) + 'M'
+        experiment_name = experiment_name + '_' + str(args.epochs)
+        experiment_name = experiment_name + '_' + str(year) + str(month) + str(day)
+        if args.resume:
+            experiment_name = experiment_name + '_resume'
+    else:
+        experiment_name = args.experiment_name + '_eval_' + args.dataset_path
 
     if script_path is None:
         exit_missing_argument(script_path_arg_name)
     if experiment_name is None:
         exit_missing_argument(script_exp_arg_name)
 
-    global_configs = globals()
-    assert args.config_type in global_configs, f'config_type should be global definition'
-    config_type = global_configs[args.config_type]
+    if args.is_train:
+        global_configs = globals()
+        assert args.config_type in global_configs, f'config_type should be global definition'
+        config_type = global_configs[args.config_type]
 
-    args.config_file = global_configs[args.config_setting][args.gpu_num]
+        args.config_file = global_configs[args.config_setting][args.gpu_num]
 
-    if isinstance(args.config_file, list):
-        args.config_file = args.config_file[args.config_index]
+        if isinstance(args.config_file, list):
+            args.config_file = args.config_file[args.config_index]
 
-    assert args.config_file in config_type, f'config file does not exist in the global config setting'
-    settings = config_type[args.config_file]
+        assert args.config_file in config_type, f'config file does not exist in the global config setting'
+        settings = config_type[args.config_file]
 
-    if args.config_file == 'config_shilei.json':
-        settings = settings[args.compute_index]
+        if args.config_file == 'config_shilei.json':
+            settings = settings[args.compute_index]
+    else:
+        args.config_file = 'config.json'
+        settings = configs_defaultsinglegpu[args.config_file]
 
     args.workspace_config = args.config_file
     args.compute_target = settings[0]
@@ -232,21 +250,36 @@ if __name__ == '__main__':
         script_params = {config_path: ''} if script_requires_config else []
     else:
         # Set node number for distribution training
-        if 'distrib' in args.script_path:
-            script_params = {'--basedir': ds.path(args.basedir).as_mount(),
-                             '--tag': args.experiment_tag_name,
-                             '--experiment_name': experiment_name,
-                             '--node_num': args.gpu_num,
-                             '--total_data': args.total_data,
-                             '--epochs': args.epochs,
-                             '--debug': args.debug,
-                             '--batch_size': args.batch_size,
-                             '--nodes': args.nodes,
-                             '--node_index': args.node_index}
+        if args.is_train:
+            if args.resume:
+                script_params = {'--basedir': ds.path(args.basedir).as_mount(),
+                                 '--tag': args.experiment_tag_name,
+                                 '--experiment_name': experiment_name,
+                                 '--node_num': args.gpu_num,
+                                 '--total_data': args.total_data,
+                                 '--epochs': args.epochs,
+                                 '--debug': args.debug,
+                                 '--batch_size': args.batch_size,
+                                 '--nodes': args.nodes,
+                                 '--node_index': args.node_index,
+                                 '--resume': args.resume}
+            else:
+                script_params = {'--basedir': ds.path(args.basedir).as_mount(),
+                                 '--tag': args.experiment_tag_name,
+                                 '--experiment_name': experiment_name,
+                                 '--node_num': args.gpu_num,
+                                 '--total_data': args.total_data,
+                                 '--epochs': args.epochs,
+                                 '--debug': args.debug,
+                                 '--batch_size': args.batch_size,
+                                 '--nodes': args.nodes,
+                                 '--node_index': args.node_index}
         else:
             script_params = {'--basedir': ds.path(args.basedir).as_mount(),
                              '--tag': args.experiment_tag_name,
-                             '--experiment_name': args.experiment_name}
+                             '--experiment_name': args.experiment_name,
+                             '--dataset_path': args.dataset_path,
+                             '--eval_model_dir': args.eval_model_dir}
 
     if args.extra_params:
         if isinstance(script_params, list):
